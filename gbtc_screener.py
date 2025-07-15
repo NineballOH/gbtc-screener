@@ -46,7 +46,7 @@ if day["Close"].item() > day["Open"].item():
         score += 1
         traits.append("Bullish candle")
 
-    if day["Close"] > day["20SMA"]:
+    if day["Close"].item() > day["20SMA"].item():
         score += 1
         traits.append("Above 20SMA")
 
