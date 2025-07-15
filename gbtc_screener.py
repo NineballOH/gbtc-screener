@@ -94,7 +94,7 @@ for i in range(-ENTRY_LOOKBACK, 0):
     score, reasons = evaluate_entry(today, prev)
     entry_results.append({
         "Date": today["Date"].iloc[0].strftime("%Y-%m-%d"),
-        "Close": round(today["Close"], 2),
+        "Close": round(today["Close"].iloc[0], 2),
         "Score": score,
         "Traits": reasons
     })
