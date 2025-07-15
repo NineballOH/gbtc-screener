@@ -93,7 +93,7 @@ for i in range(-ENTRY_LOOKBACK, 0):
     prev = df.iloc[i - 1]
     score, reasons = evaluate_entry(today, prev)
     entry_results.append({
-        "Date": today["Date"].strftime("%Y-%m-%d"),
+        "Date": today["Date"].iloc[0].strftime("%Y-%m-%d"),
         "Close": round(today["Close"], 2),
         "Score": score,
         "Traits": reasons
