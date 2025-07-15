@@ -41,6 +41,7 @@ def rvol_score(rvol):
 def evaluate_entry(day, prev_day):
     score = 0
     traits = []
+
     if day["Close"].item() > day["Open"].item():
         score += 1
         traits.append("Bullish candle")
@@ -49,7 +50,7 @@ def evaluate_entry(day, prev_day):
         score += 1
         traits.append("Above 20SMA")
 
-    if day["Close"] > day["50SMA"]:
+    if day["Close"].item() > day["50SMA"].item():
         score += 1
         traits.append("Above 50SMA")
 
@@ -57,41 +58,19 @@ def evaluate_entry(day, prev_day):
         score += 1
         traits.append("Bullish continuation")
 
-    rvol = day["RVOL50"]
-    rscore = rvol_score(rvol)
-    if rscore > 0:
-        score += rscore
-        traits.append(f"RVOL {rvol:.2f} → +{rscore} pt")
+    return score, traits
 
-    return score, ", ".join(traits)
+def evaluate_exit(day, entry_day):
+    reasons = []
 
-def evaluate_exit(day, prev_day):
-    score = 0
-    traits = []
+    if day["Close"].item() < day["20SMA"].item():
+        reasons.append("Below 20SMA")
 
-    if day["Close"] < day["Open"]:
-        score += 1
-        traits.append("Bearish candle")
+    if day["Close"].item() < entry_day["Close"].item():
+        reasons.append("Below entry close")
 
-    if day["Close"] < day["20SMA"]:
-        score += 1
-        traits.append("Below 20SMA")
+    return reasons
 
-    if day["Close"] < day["50SMA"]:
-        score += 1
-        traits.append("Below 50SMA")
-
-    if day["High"] < prev_day["High"] and day["Low"] < prev_day["Low"]:
-        score += 1
-        traits.append("Bearish continuation")
-
-    rvol = day["RVOL50"]
-    rscore = rvol_score(rvol)
-    if rscore > 0:
-        score += rscore
-        traits.append(f"RVOL {rvol:.2f} → +{rscore} pt")
-
-    return score, ", ".join(traits)
 
 # =============================
 # STREAMLIT APP
