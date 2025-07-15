@@ -42,7 +42,7 @@ def evaluate_entry(day, prev_day):
     score = 0
     traits = []
     
-    if day["Close"] > day["Open"]:
+if day["Close"].item() > day["Open"].item():
         score += 1
         traits.append("Bullish candle")
 
