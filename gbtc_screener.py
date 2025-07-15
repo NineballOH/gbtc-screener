@@ -17,7 +17,7 @@ RVOL_LOOKBACK = 50
 # =============================
 def get_data(ticker):
     end = datetime.today()
-    start = end - timedelta(days=DAYS_LOOKBACK * 2)  # allow for non-trading days
+    start = end - timedelta(days=DAYS_LOOKBACK * 2)  # account for weekends/holidays
     df = yf.download(ticker, start=start, end=end)
     df = df.reset_index()
     df["RVOL50"] = df["Volume"] / df["Volume"].rolling(RVOL_LOOKBACK).mean()
@@ -42,19 +42,19 @@ def evaluate_entry(day, prev_day):
     score = 0
     traits = []
 
-    if day["Close"] > day["Open"]:
+    if float(day["Close"]) > float(day["Open"]):
         score += 1
         traits.append("Bullish candle")
 
-    if day["Close"] > day["20SMA"]:
+    if float(day["Close"]) > float(day["20SMA"]):
         score += 1
         traits.append("Above 20SMA")
 
-    if day["Close"] > day["50SMA"]:
+    if float(day["Close"]) > float(day["50SMA"]):
         score += 1
         traits.append("Above 50SMA")
 
-    if day["High"] > prev_day["High"] and day["Low"] > prev_day["Low"]:
+    if float(day["High"]) > float(prev_day["High"]) and float(day["Low"]) > float(prev_day["Low"]):
         score += 1
         traits.append("Bullish continuation")
 
@@ -63,19 +63,19 @@ def evaluate_entry(day, prev_day):
 def evaluate_exit(day, entry_day):
     reasons = []
 
-    if day["Close"] < day["20SMA"]:
+    if float(day["Close"]) < float(day["20SMA"]):
         reasons.append("Below 20SMA")
 
-    if day["Close"] < entry_day["Close"]:
+    if float(day["Close"]) < float(entry_day["Close"]):
         reasons.append("Below entry close")
 
-    return reasons
+    return len(reasons), reasons
 
 # =============================
 # STREAMLIT APP
 # =============================
 st.set_page_config(layout="wide")
-st.title("📈 GBTC Entry/Exit Screener")
+st.title("\U0001F4C8 GBTC Entry/Exit Screener")
 
 with st.spinner("Loading GBTC data from Yahoo Finance..."):
     df = get_data(TICKER)
@@ -87,37 +87,34 @@ if df.empty:
     st.error("No data returned for GBTC. Please try again later.")
     st.stop()
 
-# ENTRY SCORING
 for i in range(-ENTRY_LOOKBACK, 0):
     today = df.iloc[i]
     prev = df.iloc[i - 1]
     score, reasons = evaluate_entry(today, prev)
     entry_results.append({
-        "Date": today["Date"].strftime("%Y-%m-%d"),
+        "Date": pd.to_datetime(today["Date"]).strftime("%Y-%m-%d"),
         "Close": round(float(today["Close"]), 2),
         "Score": score,
         "Traits": reasons
     })
 
-# EXIT SCORING
 for i in range(-EXIT_LOOKBACK, 0):
     today = df.iloc[i]
-    prev = df.iloc[i - 1]
-    score, reasons = evaluate_exit(today, prev)
+    entry_day = df.iloc[i - 1]
+    score, reasons = evaluate_exit(today, entry_day)
     exit_results.append({
-        "Date": today["Date"].strftime("%Y-%m-%d"),
+        "Date": pd.to_datetime(today["Date"]).strftime("%Y-%m-%d"),
         "Close": round(float(today["Close"]), 2),
         "Score": score,
         "Traits": reasons
     })
 
-# DISPLAY RESULTS
 col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader("📥 Entry Screener (Last 10 Days)")
+    st.subheader("\U0001F4E5 Entry Screener (Last 10 Days)")
     st.dataframe(pd.DataFrame(entry_results).sort_values("Date", ascending=False))
 
 with col2:
-    st.subheader("📤 Exit Screener (Last 5 Days)")
+    st.subheader("\U0001F6AA Exit Screener (Last 5 Days)")
     st.dataframe(pd.DataFrame(exit_results).sort_values("Date", ascending=False))
