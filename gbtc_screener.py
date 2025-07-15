@@ -61,15 +61,18 @@ def evaluate_entry(day, prev_day):
     return score, traits
 
 def evaluate_exit(day, entry_day):
+    score = 0
     reasons = []
 
     if day["Close"].item() < day["20SMA"].item():
+        score += 1
         reasons.append("Below 20SMA")
 
     if day["Close"].item() < entry_day["Close"].item():
+        score += 1
         reasons.append("Below entry close")
 
-    return reasons
+    return score, reasons
 
 
 # =============================
