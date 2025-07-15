@@ -20,7 +20,6 @@ def get_data(ticker):
     start = end - timedelta(days=DAYS_LOOKBACK * 2)  # allow for non-trading days
     df = yf.download(ticker, start=start, end=end)
     df = df.reset_index()
-    df["Date"] = pd.to_datetime(df["Date"])
     df["RVOL50"] = df["Volume"] / df["Volume"].rolling(RVOL_LOOKBACK).mean()
     df["20SMA"] = df["Close"].rolling(20).mean()
     df["50SMA"] = df["Close"].rolling(50).mean()
@@ -43,38 +42,34 @@ def evaluate_entry(day, prev_day):
     score = 0
     traits = []
 
-    if day["Close"].item() > day["Open"].item():
+    if day["Close"] > day["Open"]:
         score += 1
         traits.append("Bullish candle")
 
-    if day["Close"].item() > day["20SMA"].item():
+    if day["Close"] > day["20SMA"]:
         score += 1
         traits.append("Above 20SMA")
 
-    if day["Close"].item() > day["50SMA"].item():
+    if day["Close"] > day["50SMA"]:
         score += 1
         traits.append("Above 50SMA")
 
-    if day["High"].item() > prev_day["High"].item() and day["Low"].item() > prev_day["Low"].item():
+    if day["High"] > prev_day["High"] and day["Low"] > prev_day["Low"]:
         score += 1
         traits.append("Bullish continuation")
 
     return score, traits
 
 def evaluate_exit(day, entry_day):
-    score = 0
     reasons = []
 
-    if day["Close"].item() < day["20SMA"].item():
-        score += 1
+    if day["Close"] < day["20SMA"]:
         reasons.append("Below 20SMA")
 
-    if day["Close"].item() < entry_day["Close"].item():
-        score += 1
+    if day["Close"] < entry_day["Close"]:
         reasons.append("Below entry close")
 
-    return score, reasons
-
+    return reasons
 
 # =============================
 # STREAMLIT APP
@@ -92,28 +87,31 @@ if df.empty:
     st.error("No data returned for GBTC. Please try again later.")
     st.stop()
 
+# ENTRY SCORING
 for i in range(-ENTRY_LOOKBACK, 0):
     today = df.iloc[i]
     prev = df.iloc[i - 1]
     score, reasons = evaluate_entry(today, prev)
     entry_results.append({
-        "Date": today["Date"].item().strftime("%Y-%m-%d"),
-        "Close": round(today["Close"].iloc[0], 2),
+        "Date": today["Date"].strftime("%Y-%m-%d"),
+        "Close": round(float(today["Close"]), 2),
         "Score": score,
         "Traits": reasons
     })
 
+# EXIT SCORING
 for i in range(-EXIT_LOOKBACK, 0):
     today = df.iloc[i]
     prev = df.iloc[i - 1]
     score, reasons = evaluate_exit(today, prev)
     exit_results.append({
-        "Date": today["Date"].item().strftime("%Y-%m-%d"),
-        "Close": round(today["Close"], 2),
+        "Date": today["Date"].strftime("%Y-%m-%d"),
+        "Close": round(float(today["Close"]), 2),
         "Score": score,
         "Traits": reasons
     })
 
+# DISPLAY RESULTS
 col1, col2 = st.columns(2)
 
 with col1:
