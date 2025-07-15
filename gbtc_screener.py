@@ -100,39 +100,28 @@ if df.empty:
     st.error("No data returned for GBTC. Please try again later.")
     st.stop()
 
-# ENTRY SCREEN
+# ENTRY SCREENER
 for i in range(-ENTRY_LOOKBACK, 0):
-    today = df.iloc[i]
-    prev = df.iloc[i - 1]
-    score, traits = evaluate_entry(today, prev)
+    today_row = df.iloc[i]
+    prev_row = df.iloc[i - 1]
+    score, traits = evaluate_entry(today_row, prev_row)
     entry_results.append({
-        "Date": today["Date"].strftime("%Y-%m-%d"),
-        "Close": round(float(today["Close"]), 2),
+        "Date": pd.to_datetime(today_row["Date"]).strftime("%Y-%m-%d"),
+        "Close": round(float(today_row["Close"]), 2),
         "Score": score,
         "Traits": ", ".join(traits)
     })
 
-# EXIT SCREEN
+# EXIT SCREENER
 for i in range(-EXIT_LOOKBACK, 0):
-    today = df.iloc[i]
-    prev = df.iloc[i - 1]
-    score, traits = evaluate_exit(today, prev)
+    today_row = df.iloc[i]
+    prev_row = df.iloc[i - 1]
+    score, traits = evaluate_exit(today_row, prev_row)
     exit_results.append({
-        "Date": today["Date"].strftime("%Y-%m-%d"),
-        "Close": round(float(today["Close"]), 2),
+        "Date": pd.to_datetime(today_row["Date"]).strftime("%Y-%m-%d"),
+        "Close": round(float(today_row["Close"]), 2),
         "Score": score,
         "Traits": ", ".join(traits)
     })
 
-# =============================
-# DISPLAY
-# =============================
-col1, col2 = st.columns(2)
-
-with col1:
-    st.subheader("📥 Entry Screener (Last 10 Days)")
-    st.dataframe(pd.DataFrame(entry_results).sort_values("Date", ascending=False))
-
-with col2:
-    st.subheader("📤 Exit Screener (Last 5 Days)")
-    st.dataframe(pd.DataFrame(exit_results).sort_values("Date", ascending=False))
+#
