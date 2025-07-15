@@ -106,6 +106,10 @@ with st.spinner("Loading GBTC data from Yahoo Finance..."):
 entry_results = []
 exit_results = []
 
+if df.empty:
+    st.error("No data returned for GBTC. Please try again later.")
+    st.stop()
+
 for i in range(-ENTRY_LOOKBACK, 0):
     today = df.iloc[i]
     prev = df.iloc[i - 1]
