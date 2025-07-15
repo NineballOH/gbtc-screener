@@ -20,6 +20,7 @@ def get_data(ticker):
     start = end - timedelta(days=DAYS_LOOKBACK * 2)  # allow for non-trading days
     df = yf.download(ticker, start=start, end=end)
     df = df.reset_index()
+    df["Date"] = pd.to_datetime(df["Date"])
     df["RVOL50"] = df["Volume"] / df["Volume"].rolling(RVOL_LOOKBACK).mean()
     df["20SMA"] = df["Close"].rolling(20).mean()
     df["50SMA"] = df["Close"].rolling(50).mean()
@@ -96,7 +97,7 @@ for i in range(-ENTRY_LOOKBACK, 0):
     prev = df.iloc[i - 1]
     score, reasons = evaluate_entry(today, prev)
     entry_results.append({
-        "Date": today["Date"].iloc[0].strftime("%Y-%m-%d"),
+        "Date": today["Date"].item().strftime("%Y-%m-%d"),
         "Close": round(today["Close"].iloc[0], 2),
         "Score": score,
         "Traits": reasons
@@ -107,7 +108,7 @@ for i in range(-EXIT_LOOKBACK, 0):
     prev = df.iloc[i - 1]
     score, reasons = evaluate_exit(today, prev)
     exit_results.append({
-        "Date": today["Date"].strftime("%Y-%m-%d"),
+        "Date": today["Date"].item().strftime("%Y-%m-%d"),
         "Close": round(today["Close"], 2),
         "Score": score,
         "Traits": reasons
