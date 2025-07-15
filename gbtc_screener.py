@@ -54,7 +54,7 @@ def evaluate_entry(day, prev_day):
         score += 1
         traits.append("Above 50SMA")
 
-    if day["High"] > prev_day["High"] and day["Low"] > prev_day["Low"]:
+    if day["High"].item() > prev_day["High"].item() and day["Low"].item() > prev_day["Low"].item():
         score += 1
         traits.append("Bullish continuation")
 
