@@ -1,123 +1,76 @@
 import streamlit as st
 import pandas as pd
-import yfinance as yf
-from datetime import datetime, timedelta
+import numpy as np
 
-# =============================
-# CONFIGURATION
-# =============================
-TICKER = "GBTC"
-DAYS_LOOKBACK = 90
-ENTRY_LOOKBACK = 10
+# === Parameters ===
+ENTRY_LOOKBACK = 5
 EXIT_LOOKBACK = 5
-RVOL_LOOKBACK = 50
 
-# =============================
-# HELPER FUNCTIONS
-# =============================
-def get_data(ticker):
-    end = datetime.today()
-    start = end - timedelta(days=DAYS_LOOKBACK * 2)  # allow for non-trading days
-    df = yf.download(ticker, start=start, end=end)
-    df = df.reset_index()
-    df["RVOL50"] = df["Volume"] / df["Volume"].rolling(RVOL_LOOKBACK).mean()
-    df["20SMA"] = df["Close"].rolling(20).mean()
-    df["50SMA"] = df["Close"].rolling(50).mean()
-    return df.dropna()
+# === Load Data ===
+def load_data():
+    df = pd.read_csv("/mnt/data/gbtc_data.csv", parse_dates=["Date"])
+    df = df.sort_values("Date").reset_index(drop=True)
+    return df
 
-def rvol_score(rvol):
-    if rvol > 5.0:
-        return 5
-    elif rvol > 3.0:
-        return 3
-    elif rvol > 2.0:
-        return 2
-    elif rvol > 1.5:
-        return 1.5
-    elif rvol > 1.0:
-        return 1
-    return 0
+# === Entry Signal Logic ===
+def evaluate_entry(today_row, prev_row):
+    try:
+        if today_row["Close"] > today_row["Open"] and today_row["Volume"] > prev_row["Volume"]:
+            return 1, "Bullish candle + rising volume"
+        else:
+            return 0, "No entry signal"
+    except:
+        return 0, "Error in entry logic"
 
-def evaluate_entry(day, prev_day):
-    score = 0
-    traits = []
+# === Exit Signal Logic ===
+def evaluate_exit(today_row, prev_row):
+    try:
+        if today_row["Close"] < today_row["Open"] and today_row["Volume"] > prev_row["Volume"]:
+            return 1, "Bearish candle + rising volume"
+        else:
+            return 0, "No exit signal"
+    except:
+        return 0, "Error in exit logic"
 
-    if day["Close"] > day["Open"]:
-        score += 1
-        traits.append("Bullish candle")
-
-    if day["Close"] > day["20SMA"]:
-        score += 1
-        traits.append("Above 20SMA")
-
-    if day["Close"] > day["50SMA"]:
-        score += 1
-        traits.append("Above 50SMA")
-
-    if day["High"] > prev_day["High"] and day["Low"] > prev_day["Low"]:
-        score += 1
-        traits.append("Bullish continuation")
-
-    return score, traits
-
-def evaluate_exit(day, entry_day):
-    reasons = []
-
-    if day["Close"] < day["20SMA"]:
-        reasons.append("Below 20SMA")
-
-    if day["Close"] < entry_day["Close"]:
-        reasons.append("Below entry close")
-
-    return reasons
-
-# =============================
-# STREAMLIT APP
-# =============================
-st.set_page_config(layout="wide")
+# === Streamlit App ===
+st.set_page_config(page_title="GBTC Entry/Exit Screener")
 st.title("📈 GBTC Entry/Exit Screener")
 
-with st.spinner("Loading GBTC data from Yahoo Finance..."):
-    df = get_data(TICKER)
-
+# Load data
+df = load_data()
 if df.empty:
-    st.error("No data returned for GBTC. Please try again later.")
+    st.error("No data returned for GBTC. Please check your file.")
     st.stop()
 
+# Evaluate Entry Signals
 entry_results = []
-exit_results = []
-
-# ENTRY SCORING
-for i in range(-ENTRY_LOOKBACK, 0):
-    today_row = df.iloc[i]
-    prev_row = df.iloc[i - 1]
-    score, traits = evaluate_entry(today_row, prev_row)
+for i in range(ENTRY_LOOKBACK, len(df)):
+    today = df.iloc[i]
+    prev = df.iloc[i - 1]
+    score, traits = evaluate_entry(today, prev)
     entry_results.append({
-        "Date": pd.to_datetime(today_row["Date"]).strftime("%Y-%m-%d"),
-        "Close": round(today_row["Close"], 2),
+        "Date": today["Date"].strftime("%Y-%m-%d"),
+        "Close": round(float(today["Close"]), 2),
         "Score": score,
         "Traits": traits
     })
 
-# EXIT SCORING
-for i in range(-EXIT_LOOKBACK, 0):
-    today_row = df.iloc[i]
-    entry_row = df.iloc[i - 1]
-    reasons = evaluate_exit(today_row, entry_row)
+# Evaluate Exit Signals
+exit_results = []
+for i in range(EXIT_LOOKBACK, len(df)):
+    today = df.iloc[i]
+    prev = df.iloc[i - 1]
+    score, traits = evaluate_exit(today, prev)
     exit_results.append({
-        "Date": pd.to_datetime(today_row["Date"]).strftime("%Y-%m-%d"),
-        "Close": round(today_row["Close"], 2),
-        "Score": len(reasons),
-        "Traits": reasons
+        "Date": today["Date"].strftime("%Y-%m-%d"),
+        "Close": round(float(today["Close"]), 2),
+        "Score": score,
+        "Traits": traits
     })
 
-# DISPLAY RESULTS
-col1, col2 = st.columns(2)
+# Display
+st.subheader("Recent Entry Signals")
+st.dataframe(pd.DataFrame(entry_results[-10:]))
 
-with col1:
-    st.subheader("📥 Entry Screener (Last 10 Days)")
-    st.dataframe(pd.DataFrame(entry_results).sort_values("Date", ascending=False))
-
-with col2:
-    st.subheader("📤 Exit Screener (Last 5 Days)")
-    st.dataframe(pd.DataFrame(exit_results).sort_values("Date", ascending=False))
+st.subheader("Recent Exit Signals")
+st.dataframe(pd.DataFrame(exit_results[-10:]))
