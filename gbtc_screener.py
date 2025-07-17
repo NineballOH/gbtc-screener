@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 # CONFIG
 TICKER = "GBTC"
 DAYS_LOOKBACK = 90
-ENTRY_LOOKBACK = 10
-EXIT_LOOKBACK = 10
+ENTRY_LOOKBACK = 30
+EXIT_LOOKBACK = 30
 RVOL_LOOKBACK = 50
 
 # DATA FETCHING
@@ -159,7 +159,7 @@ if len(df) > EXIT_LOOKBACK:
 tab1, tab2 = st.tabs(["📥 Entry Screener", "📤 Exit Screener"])
 
 with tab1:
-    st.subheader("Entry Signals (Last 10 Days)")
+    st.subheader("Entry Signals (Last 30 Days)")
     if entry_results:
         entry_df = pd.DataFrame(entry_results).sort_values("Date", ascending=False)
         st.dataframe(entry_df, use_container_width=True)
@@ -171,7 +171,7 @@ with tab1:
         st.warning("No entry data available")
 
 with tab2:
-    st.subheader("Exit Signals (Last 10 Days)")
+    st.subheader("Exit Signals (Last 30 Days)")
     if exit_results:
         exit_df = pd.DataFrame(exit_results).sort_values("Date", ascending=False)
         st.dataframe(exit_df, use_container_width=True)
