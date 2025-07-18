@@ -14,15 +14,31 @@ RVOL_LOOKBACK = 50
 @st.cache_data
 def get_data(ticker):
     try:
+        # Try multiple approaches to get maximum data
         end = datetime.today()
-        start = end - timedelta(days=DAYS_LOOKBACK * 2)
-        df = yf.download(ticker, start=start, end=end)
+        
+        # Option 1: Try with period="max" first
+        try:
+            st.write("Attempting to fetch maximum available data...")
+            df = yf.download(ticker, period="max")
+            st.write(f"Period='max' returned {len(df)} rows")
+        except:
+            st.write("Period='max' failed, trying date range...")
+            # Option 2: Try with a very early start date
+            start = datetime(2013, 1, 1)  # GBTC inception was around 2013
+            df = yf.download(ticker, start=start, end=end)
+            st.write(f"Date range approach returned {len(df)} rows")
         
         # Handle MultiIndex columns if they exist
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.droplevel(1)
         
         df = df.reset_index()
+        
+        # Show available date range
+        if len(df) > 0:
+            st.write(f"Available data range: {df['Date'].min()} to {df['Date'].max()}")
+            st.write(f"Total trading days available: {len(df)}")
         
         # Ensure we have the required columns
         required_cols = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume']
@@ -120,16 +136,28 @@ if df.empty:
     st.stop()
 
 # Check if we have enough data
-if len(df) < max(ENTRY_LOOKBACK, EXIT_LOOKBACK) + 1:
-    st.error(f"Not enough data. Need at least {max(ENTRY_LOOKBACK, EXIT_LOOKBACK) + 1} days of data.")
-    st.stop()
+available_days = len(df)
+requested_days = max(ENTRY_LOOKBACK, EXIT_LOOKBACK) + 1
+
+if available_days < requested_days:
+    st.warning(f"Requested {requested_days} days but only {available_days} days available.")
+    st.write(f"Using all available data: {available_days} days")
+    # Adjust lookback to available data
+    max_lookback = available_days - 1
+    actual_entry_lookback = min(ENTRY_LOOKBACK, max_lookback)
+    actual_exit_lookback = min(EXIT_LOOKBACK, max_lookback)
+    st.write(f"Adjusted entry lookback: {actual_entry_lookback} days")
+    st.write(f"Adjusted exit lookback: {actual_exit_lookback} days")
+else:
+    actual_entry_lookback = ENTRY_LOOKBACK
+    actual_exit_lookback = EXIT_LOOKBACK
 
 entry_results = []
 exit_results = []
 
 # ENTRY ANALYSIS
-st.write(f"Analyzing last {ENTRY_LOOKBACK} days for entry signals...")
-for i in range(max(-len(df), -ENTRY_LOOKBACK), 0):
+st.write(f"Analyzing last {actual_entry_lookback} days for entry signals...")
+for i in range(max(-len(df), -actual_entry_lookback), 0):
     if i - 1 >= -len(df):  # Make sure we have a previous day
         day = df.iloc[i]
         prev = df.iloc[i - 1]
@@ -142,10 +170,10 @@ for i in range(max(-len(df), -ENTRY_LOOKBACK), 0):
         })
 
 # EXIT ANALYSIS
-st.write(f"Analyzing last {EXIT_LOOKBACK} days for exit signals...")
-if len(df) > EXIT_LOOKBACK:
-    entry_price_reference = df.iloc[-EXIT_LOOKBACK - 1]["Close"]
-    for i in range(max(-len(df), -EXIT_LOOKBACK), 0):
+st.write(f"Analyzing last {actual_exit_lookback} days for exit signals...")
+if len(df) > actual_exit_lookback:
+    entry_price_reference = df.iloc[-actual_exit_lookback - 1]["Close"]
+    for i in range(max(-len(df), -actual_exit_lookback), 0):
         day = df.iloc[i]
         score, reasons = evaluate_exit(day, entry_price_reference)
         exit_results.append({
@@ -159,7 +187,7 @@ if len(df) > EXIT_LOOKBACK:
 tab1, tab2 = st.tabs(["📥 Entry Screener", "📤 Exit Screener"])
 
 with tab1:
-    st.subheader("Entry Signals (Last 2,567 Trading Days)")
+    st.subheader(f"Entry Signals (Last {actual_entry_lookback} Days)")
     if entry_results:
         entry_df = pd.DataFrame(entry_results).sort_values("Date", ascending=False)
         st.dataframe(entry_df, use_container_width=True)
@@ -171,7 +199,7 @@ with tab1:
         st.warning("No entry data available")
 
 with tab2:
-    st.subheader("Exit Signals (Last 2,567 Trading Days)")
+    st.subheader(f"Exit Signals (Last {actual_exit_lookback} Days)")
     if exit_results:
         exit_df = pd.DataFrame(exit_results).sort_values("Date", ascending=False)
         st.dataframe(exit_df, use_container_width=True)
