@@ -11,23 +11,53 @@ EXIT_LOOKBACK = 60
 RVOL_LOOKBACK = 50
 
 # DATA FETCHING
-@st.cache_data
+@st.cache_data(ttl=3600)  # Cache for 1 hour only
 def get_data(ticker):
     try:
-        # Try multiple approaches to get maximum data
-        end = datetime.today()
+        # Try multiple approaches to get data
+        df = None
         
         # Option 1: Try with period="max" first
         try:
             st.write("Attempting to fetch maximum available data...")
-            df = yf.download(ticker, period="max")
+            df = yf.download(ticker, period="max", progress=False)
             st.write(f"Period='max' returned {len(df)} rows")
-        except:
-            st.write("Period='max' failed, trying date range...")
-            # Option 2: Try with a very early start date
-            start = datetime(2013, 1, 1)  # GBTC inception was around 2013
-            df = yf.download(ticker, start=start, end=end)
-            st.write(f"Date range approach returned {len(df)} rows")
+            if len(df) == 0:
+                raise Exception("No data returned from period='max'")
+        except Exception as e1:
+            st.write(f"Period='max' failed: {str(e1)}")
+            
+            # Option 2: Try with recent date range
+            try:
+                st.write("Trying recent date range (5 years)...")
+                end = datetime.today()
+                start = end - timedelta(days=1825)  # 5 years
+                df = yf.download(ticker, start=start, end=end, progress=False)
+                st.write(f"5-year range returned {len(df)} rows")
+                if len(df) == 0:
+                    raise Exception("No data returned from date range")
+            except Exception as e2:
+                st.write(f"5-year range failed: {str(e2)}")
+                
+                # Option 3: Try with 1 year range
+                try:
+                    st.write("Trying 1-year date range...")
+                    start = end - timedelta(days=365)
+                    df = yf.download(ticker, start=start, end=end, progress=False)
+                    st.write(f"1-year range returned {len(df)} rows")
+                    if len(df) == 0:
+                        raise Exception("No data returned from 1-year range")
+                except Exception as e3:
+                    st.write(f"1-year range failed: {str(e3)}")
+                    st.error("All data fetching methods failed. This could be due to:")
+                    st.error("1. Yahoo Finance API temporary outage")
+                    st.error("2. Rate limiting (try again in a few minutes)")
+                    st.error("3. Network connectivity issues")
+                    st.error("4. Ticker symbol issues")
+                    return pd.DataFrame()
+        
+        if df is None or len(df) == 0:
+            return pd.DataFrame()
         
         # Handle MultiIndex columns if they exist
         if isinstance(df.columns, pd.MultiIndex):
@@ -37,14 +67,16 @@ def get_data(ticker):
         
         # Show available date range
         if len(df) > 0:
-            st.write(f"Available data range: {df['Date'].min()} to {df['Date'].max()}")
-            st.write(f"Total trading days available: {len(df)}")
+            st.success(f"✅ Data successfully loaded!")
+            st.write(f"📅 Available data range: {df['Date'].min().strftime('%Y-%m-%d')} to {df['Date'].max().strftime('%Y-%m-%d')}")
+            st.write(f"📊 Total trading days available: {len(df)}")
         
         # Ensure we have the required columns
         required_cols = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume']
         missing_cols = [col for col in required_cols if col not in df.columns]
         if missing_cols:
             st.error(f"Missing columns: {missing_cols}")
+            st.write("Available columns:", list(df.columns))
             return pd.DataFrame()
         
         # Calculate indicators
@@ -54,7 +86,7 @@ def get_data(ticker):
         
         return df.dropna()
     except Exception as e:
-        st.error(f"Error fetching data: {str(e)}")
+        st.error(f"Unexpected error in get_data: {str(e)}")
         return pd.DataFrame()
 
 # SCORING FUNCTIONS
